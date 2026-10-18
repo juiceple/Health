@@ -1,9 +1,18 @@
 import { dir, LEN, type Limb, type Pose, type Skeleton, type Vec } from './rig'
 
-export type Prop =
+/**
+ * 3D 렌더링 시 기구를 어떻게 입체화할지 힌트.
+ * - barbell: 바가 좌우(깊이)로 뻗은 바벨, dumbbells: 양손 덤벨, dumbbell: 가까운 손 하나,
+ *   dumbbell-center: 몸 중앙에서 양손으로 든 덤벨, bar: 좌우로 뻗은 손잡이 봉, skip: 3D에서 생략
+ * 지정이 없으면 모양(두께·크기)으로 추정 (벤치/패드/프레임/케이블)
+ */
+export type PropRole = 'barbell' | 'dumbbells' | 'dumbbell' | 'dumbbell-center' | 'bar' | 'skip'
+
+export type Prop = (
   | { kind: 'circle'; c: Vec; r: number; fill?: boolean }
   | { kind: 'line'; a: Vec; b: Vec; w?: number }
   | { kind: 'rect'; x: number; y: number; w: number; h: number }
+) & { role?: PropRole }
 
 export type Keyframe = {
   pose: Pose
@@ -22,6 +31,8 @@ export type Motion = {
   frames: Keyframe[]
   props?: (s: Skeleton) => Prop[]
   hideLegs?: boolean
+  /** 등을 대고 누운 자세 (몸통 각도만으로는 엎드림과 구분되지 않음) */
+  supine?: boolean
   /** 화면에 실시간으로 표시할 관절 각도 */
   metric?: { joint: 'knee' | 'elbow' | 'hip'; label: string }
 }
@@ -43,10 +54,12 @@ const both = (l: Limb) => ({ armN: l, armF: l })
 const legs = (l: Limb) => ({ legN: l, legF: l })
 
 const plate = (at: Vec, r = 15): Prop[] => [
-  { kind: 'circle', c: at, r },
-  { kind: 'circle', c: at, r: 2.5, fill: true },
+  { kind: 'circle', c: at, r, role: 'barbell' },
+  { kind: 'circle', c: at, r: 2.5, fill: true, role: 'skip' },
 ]
-const dumbbell = (at: Vec): Prop[] => [{ kind: 'rect', x: at[0] - 7, y: at[1] - 3.5, w: 14, h: 7 }]
+const dumbbell = (at: Vec, role: PropRole = 'dumbbells'): Prop[] => [
+  { kind: 'rect', x: at[0] - 7, y: at[1] - 3.5, w: 14, h: 7, role },
+]
 
 // ── 운동별 모션 ────────────────────────────────────
 function squat(kind: 'bodyweight' | 'barbell' | 'goblet'): Motion {
@@ -68,7 +81,7 @@ function squat(kind: 'bodyweight' | 'barbell' | 'goblet'): Motion {
     props: barbell
       ? (s) => plate([s.shoulderN[0] - 9, s.shoulderN[1] + 2], 12)
       : kind === 'goblet'
-        ? (s) => [{ kind: 'rect', x: s.wristN[0] - 4, y: s.wristN[1] - 2, w: 8, h: 16 }]
+        ? (s) => [{ kind: 'rect', x: s.wristN[0] - 4, y: s.wristN[1] - 2, w: 8, h: 16, role: 'dumbbell-center' }]
         : undefined,
     frames: [
       { pose: P(top), caption: '발은 어깨너비, 복압을 잡고 준비', hold: 700, move: 700 },
@@ -146,7 +159,7 @@ function bench(dumbbell_ = false): Motion {
   const lower = { legN: plant(-36, 4, -1), legF: plant(-36, 4, -1) }
   return {
     view: 'side',
-    viewLabel: '옆에서 본 모습',
+    supine: true,
     metric: { joint: 'elbow', label: '팔꿈치' },
     props: (s) => [
       { kind: 'rect', x: -28, y: 30, w: 92, h: 8 },
@@ -218,7 +231,7 @@ function pullup(): Motion {
   return {
     view: 'side',
     metric: { joint: 'elbow', label: '팔꿈치' },
-    props: () => [{ kind: 'line', a: [-30, bar], b: [34, bar], w: 4 }],
+    props: () => [{ kind: 'line', a: [-30, bar], b: [34, bar], w: 4, role: 'bar' }],
     frames: [
       { pose: P(141, [-8, 58]), caption: '팔을 펴고 매달려 견갑을 아래로', hold: 600, move: 700 },
       { pose: P(178, [-8, 95]), caption: '팔꿈치를 옆구리로 당겨 턱이 바 위로', hold: 500, move: 1000 },
@@ -238,7 +251,7 @@ function latPulldown(): Motion {
     metric: { joint: 'elbow', label: '팔꿈치' },
     props: (s) => [
       { kind: 'rect', x: -14, y: 38, w: 28, h: 6 },
-      { kind: 'line', a: [s.wristN[0] - 18, s.wristN[1]], b: [s.wristN[0] + 18, s.wristN[1]], w: 3 },
+      { kind: 'line', a: [s.wristN[0] - 18, s.wristN[1]], b: [s.wristN[0] + 18, s.wristN[1]], w: 3, role: 'bar' },
       { kind: 'line', a: s.wristN, b: [s.wristN[0], 200], w: 1 },
     ],
     frames: [
@@ -365,7 +378,7 @@ function curl(prop: 'dumbbell' | 'barbell' | 'hammer' = 'dumbbell'): Motion {
       prop === 'barbell'
         ? plate(s.wristN, 12)
         : prop === 'hammer'
-          ? [{ kind: 'rect', x: s.wristN[0] - 3.5, y: s.wristN[1] - 7, w: 7, h: 14 }]
+          ? [{ kind: 'rect', x: s.wristN[0] - 3.5, y: s.wristN[1] - 7, w: 7, h: 14, role: 'dumbbells' }]
           : dumbbell(s.wristN),
     frames: [
       { pose: P(178), caption: '팔꿈치를 옆구리에 붙이고 서기', hold: 500, move: 700 },
@@ -387,7 +400,7 @@ function pushdown(): Motion {
     metric: { joint: 'elbow', label: '팔꿈치' },
     props: (s) => [
       { kind: 'line', a: s.wristN, b: [44, 200], w: 1 },
-      { kind: 'line', a: [s.wristN[0] - 6, s.wristN[1]], b: [s.wristN[0] + 6, s.wristN[1]], w: 3 },
+      { kind: 'line', a: [s.wristN[0] - 6, s.wristN[1]], b: [s.wristN[0] + 6, s.wristN[1]], w: 3, role: 'bar' },
     ],
     frames: [
       { pose: P(78), caption: '팔꿈치를 옆구리에 고정, 90°에서 시작', hold: 500, move: 700 },
@@ -467,6 +480,7 @@ function crunch(): Motion {
   const P = (torso: number, arm: number): Pose => ({ hip, torso, head: 0, ...both(fk(arm, arm)), ...lower })
   return {
     view: 'side',
+    supine: true,
     metric: { joint: 'hip', label: '고관절' },
     frames: [
       { pose: P(88, -100), caption: '누워서 무릎 세우기', hold: 500, move: 700 },
@@ -485,6 +499,7 @@ function inclineBench(): Motion {
   const back = dir(torso)
   return {
     view: 'side',
+    supine: true,
     metric: { joint: 'elbow', label: '팔꿈치' },
     props: (s) => [
       { kind: 'rect', x: -30, y: 30, w: 34, h: 8 },
@@ -581,7 +596,7 @@ function oneArmRow(): Motion {
   return {
     view: 'side',
     metric: { joint: 'elbow', label: '팔꿈치' },
-    props: (s) => [{ kind: 'rect', x: -70, y: 0, w: 110, h: 38 }, ...dumbbell(s.wristN)],
+    props: (s) => [{ kind: 'rect', x: -70, y: 0, w: 110, h: 38 }, ...dumbbell(s.wristN, 'dumbbell')],
     frames: [
       { pose: { ...base, armN: fk(180) }, caption: '한 손·무릎을 벤치에, 등은 평평하게', hold: 600, move: 700 },
       { pose: { ...base, armN: { target: [sh[0] - 18, sh[1] - 20], bend: -1 } }, caption: '팔꿈치를 골반 쪽으로 당겨 올리기', hold: 500, move: 800 },
@@ -725,6 +740,7 @@ function skullCrusher(): Motion {
   const P = (a2: number): Pose => ({ hip, torso, ...both(fk(10, a2)), ...lower })
   return {
     view: 'side',
+    supine: true,
     metric: { joint: 'elbow', label: '팔꿈치' },
     props: (s) => [
       { kind: 'rect', x: -28, y: 30, w: 92, h: 8 },
@@ -746,7 +762,7 @@ function overheadExtension(): Motion {
   return {
     view: 'side',
     metric: { joint: 'elbow', label: '팔꿈치' },
-    props: (s) => [{ kind: 'rect', x: s.wristN[0] - 4, y: s.wristN[1] - 8, w: 8, h: 16 }],
+    props: (s) => [{ kind: 'rect', x: s.wristN[0] - 4, y: s.wristN[1] - 8, w: 8, h: 16, role: 'dumbbell-center' }],
     frames: [
       { pose: P(4), caption: '덤벨을 양손으로 잡고 머리 위로 팔 펴기', hold: 500, move: 700 },
       { pose: P(-150), caption: '팔꿈치 고정, 덤벨을 머리 뒤로 내리기', hold: 400, move: 1100 },

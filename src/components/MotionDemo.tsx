@@ -1,63 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { Muscle } from '../data/exercises'
-import { MOTIONS, type Motion, type Prop } from '../motion/motions'
-import { jointAngle, lerpDeep, solve, type Pose, type Vec } from '../motion/rig'
+import { MOTIONS, type Prop } from '../motion/motions'
+import { jointAngle, solve, type Skeleton, type Vec } from '../motion/rig'
+import { bounds, sample } from '../motion/timeline'
 
-const ease = (t: number) => 0.5 - Math.cos(Math.PI * t) / 2
+const Motion3D = lazy(() => import('./Motion3D'))
 
-type Frame = { pose: Pose; index: number; bad: boolean }
-
-/** 시간(ms) → 현재 보간된 자세와 캡션 인덱스 */
-function sample(m: Motion, t: number): Frame {
-  const fs = m.frames
-  const total = fs.reduce((s, f) => s + (f.move ?? 800) + (f.hold ?? 300), 0)
-  let rem = t % total
-  for (let i = 0; i < fs.length; i++) {
-    const move = fs[i].move ?? 800
-    const hold = fs[i].hold ?? 300
-    const prev = fs[(i - 1 + fs.length) % fs.length]
-    if (rem < move) return { pose: lerpDeep(prev.pose, fs[i].pose, ease(rem / move)), index: i, bad: !!fs[i].bad }
-    rem -= move
-    if (rem < hold) return { pose: fs[i].pose, index: i, bad: !!fs[i].bad }
-    rem -= hold
+const hasWebGL = (() => {
+  try {
+    const c = document.createElement('canvas')
+    return !!(c.getContext('webgl2') || c.getContext('webgl'))
+  } catch {
+    return false
   }
-  return { pose: fs[0].pose, index: 0, bad: false }
-}
-
-function bounds(m: Motion) {
-  let minX = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  let minY = 0
-  const eat = ([x, y]: Vec, r = 0) => {
-    minX = Math.min(minX, x - r)
-    maxX = Math.max(maxX, x + r)
-    maxY = Math.max(maxY, y + r)
-    minY = Math.min(minY, y - r)
-  }
-  for (let t = 0; t < 12000; t += 120) {
-    const s = solve(sample(m, t).pose, m.view)
-    Object.values(s).forEach((p) => eat(p, 10))
-    m.props?.(s).forEach((p) => {
-      if (p.kind === 'circle') eat(p.c, p.r)
-      else if (p.kind === 'line') {
-        eat(p.a)
-        eat([p.b[0], Math.min(p.b[1], maxY + 10)])
-      } else {
-        eat([p.x, p.y])
-        eat([p.x + p.w, p.y + p.h])
-      }
-    })
-  }
-  const pad = 16
-  // 화면 비율이 너무 납작/길쭉하지 않게
-  let w = maxX - minX + pad * 2
-  let h = maxY - minY + pad * 2
-  const cx = (minX + maxX) / 2
-  if (w < h * 0.8) w = h * 0.8
-  if (h < w * 0.62) h = w * 0.62
-  return { x: cx - w / 2, y: -(minY - pad + h), w, h }
-}
+})()
 
 const MUSCLE_PART: Record<Muscle, 'torso' | 'thigh' | 'shin' | 'arm' | 'shoulder' | 'glute'> = {
   가슴: 'torso',
@@ -78,16 +34,19 @@ const P = ([x, y]: Vec) => `${x.toFixed(1)},${(-y).toFixed(1)}`
 export default function MotionDemo({
   exerciseId,
   primary = [],
+  secondary = [],
   compact = false,
 }: {
   exerciseId: string
   primary?: Muscle[]
+  secondary?: Muscle[]
   compact?: boolean
 }) {
   const motion = MOTIONS[exerciseId]
   const [t, setT] = useState(0)
   const [playing, setPlaying] = useState(true)
   const [slow, setSlow] = useState(false)
+  const [use3D, setUse3D] = useState(hasWebGL)
   const last = useRef<number | null>(null)
   const box = useMemo(() => (motion ? bounds(motion) : null), [motion])
 
@@ -138,7 +97,7 @@ export default function MotionDemo({
     </g>
   )
 
-  let metric: { at: Vec; deg: number } | null = null
+  let metric: { at: Vec; joint: keyof Skeleton; deg: number } | null = null
   if (motion.metric) {
     const j = motion.metric.joint
     const deg =
@@ -147,13 +106,29 @@ export default function MotionDemo({
         : j === 'elbow'
           ? jointAngle(s.shoulderN, s.elbowN, s.wristN)
           : jointAngle(s.shoulderN, s.hipN, s.kneeN)
-    metric = { at: j === 'knee' ? s.kneeN : j === 'elbow' ? s.elbowN : s.hipN, deg }
+    const joint = j === 'knee' ? 'kneeN' : j === 'elbow' ? 'elbowN' : 'hipN'
+    metric = { at: s[joint], joint, deg }
   }
 
   const caption = motion.frames[frame.index].caption
 
   return (
     <div className="motion" style={{ '--fig': '#cfd6e4' } as React.CSSProperties}>
+      {use3D ? (
+        <Suspense fallback={<div className="motion-3d motion-loading">3D 모델 불러오는 중…</div>}>
+          <Motion3D
+            motion={motion}
+            box={box}
+            skeleton={s}
+            bad={frame.bad}
+            spine={frame.pose.spine ?? 0}
+            primary={primary}
+            secondary={secondary}
+            metric={metric ?? undefined}
+            onError={() => setUse3D(false)}
+          />
+        </Suspense>
+      ) : (
       <svg viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} className="motion-svg" role="img" aria-label="운동 동작 시범">
         <line x1={box.x} x2={box.x + box.w} y1={0} y2={0} stroke="var(--line)" strokeWidth={2} />
         {motion.props?.(s).map((p, i) => <PropShape key={i} p={p} />)}
@@ -196,6 +171,7 @@ export default function MotionDemo({
           </g>
         )}
       </svg>
+      )}
       <div className={`motion-caption ${frame.bad ? 'bad' : ''}`}>
         <span className="step">
           {frame.index + 1}/{motion.frames.length}
@@ -208,6 +184,7 @@ export default function MotionDemo({
             {motion.viewLabel ?? (motion.view === 'side' ? '옆에서 본 모습' : '정면')}
             {motion.metric && <> · <span style={{ color: 'var(--warn)' }}>●</span> {motion.metric.label} 각도</>}
             {primary.length > 0 && <> · <span className="accent">■</span> 주동근</>}
+            {use3D && secondary.length > 0 && <> · <span style={{ color: '#8fe3d2' }}>■</span> 보조근</>}
           </span>
           <span className="row">
             <button className="btn sm" onClick={() => setSlow((v) => !v)}>

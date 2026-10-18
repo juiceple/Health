@@ -477,3 +477,35 @@ ul.dots li {
   height: 100%;
   border: 0;
 }
+
+/* 3D 동작 시범 */
+.motion-3d {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 38%, #2b313c, #12151b 78%);
+}
+.motion-3d canvas {
+  display: block;
+  width: 100%;
+}
+.motion-angle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.motion-loading {
+  height: 300px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
