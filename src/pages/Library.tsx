@@ -58,7 +58,7 @@ function Detail({ id }: { id: string }) {
 
       <div className="card">
         <h2>동작 시범</h2>
-        <MotionDemo exerciseId={ex.id} primary={ex.primary} secondary={ex.secondary} />
+        <MotionDemo key={ex.id} exerciseId={ex.id} primary={ex.primary} secondary={ex.secondary} />
       </div>
 
       <div className="card">

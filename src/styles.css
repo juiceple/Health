@@ -509,3 +509,18 @@ ul.dots li {
   place-items: center;
   color: var(--muted);
 }
+
+/* ExerciseDB 일러스트 */
+.motion-gif {
+  background: #fff;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+}
+.motion-gif img {
+  width: 100%;
+  max-width: 340px;
+  aspect-ratio: 1;
+  display: block;
+}
