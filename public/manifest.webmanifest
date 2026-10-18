@@ -1,0 +1,12 @@
+{
+  "name": "FitLog - 운동 기록 & AI 자세 코치",
+  "short_name": "FitLog",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
