@@ -524,3 +524,13 @@ ul.dots li {
   aspect-ratio: 1;
   display: block;
 }
+
+/* 루틴 운동 썸네일 */
+.thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: #fff;
+  object-fit: contain;
+  flex: none;
+}

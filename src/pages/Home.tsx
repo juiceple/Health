@@ -125,6 +125,21 @@ export default function Home() {
         {data.activeWorkoutId ? '진행 중인 운동 이어하기 →' : '오늘의 운동 시작하기'}
       </button>
 
+      <button
+        className="card btn block"
+        style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}
+        onClick={() => nav({ tab: 'routines' })}
+      >
+        <div style={{ fontSize: 26 }}>📋</div>
+        <div className="grow">
+          <div>목표별 운동 루틴</div>
+          <div className="small muted" style={{ fontWeight: 400 }}>
+            살 빼기 · 복근 · 팔뚝 · 어깨 · 힙업 · 전신
+          </div>
+        </div>
+        <span className="muted">›</span>
+      </button>
+
       <div className="grid2" style={{ marginBottom: 12 }}>
         <button className="card btn" style={{ margin: 0, textAlign: 'left' }} onClick={() => nav({ tab: 'coach' })}>
           <div style={{ fontSize: 22 }}>📷</div>

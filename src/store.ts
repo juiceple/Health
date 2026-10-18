@@ -1,12 +1,17 @@
+import type { Routine } from './data/routines'
 import { useEffect, useState } from 'react'
 
 export type SetEntry = { weight: number; reps: number; done: boolean }
-export type ExerciseLog = { exerciseId: string; sets: SetEntry[] }
+/** 루틴에서 시작한 운동의 목표 (unit 'sec' 이면 reps는 초) */
+export type Target = { sets: number; reps: number; unit?: 'reps' | 'sec'; rest: number; note?: string }
+export type ExerciseLog = { exerciseId: string; sets: SetEntry[]; target?: Target }
 export type Workout = {
   id: string
   date: string // YYYY-MM-DD
   startedAt: number
   endedAt?: number
+  /** 루틴으로 시작한 경우 루틴 정보 (day: 여러 날짜로 나뉜 루틴의 몇 번째 날) */
+  routine?: { id: string; name: string; day: number }
   exercises: ExerciseLog[]
   note?: string
 }
@@ -20,6 +25,8 @@ export type AppData = {
   activeWorkoutId?: string
   /** 운동별로 사용자가 등록한 유튜브 영상 ID */
   videos?: Record<string, string>
+  /** 사용자가 만든 루틴 */
+  routines?: Routine[]
 }
 
 const KEY = 'fitlog:v1'
@@ -37,6 +44,8 @@ function load(): AppData {
 // 탭 간 공유를 위한 단일 인메모리 스토어
 let state: AppData = load()
 const listeners = new Set<() => void>()
+
+export const getData = () => state
 
 export function setData(update: (d: AppData) => AppData) {
   state = update(state)
@@ -136,4 +145,60 @@ export function setVideo(exerciseId: string, id: string | undefined) {
     else delete videos[exerciseId]
     return { ...d, videos }
   })
+}
+
+/** 이 운동의 가장 최근 완료 세트 무게 (루틴 시작 시 기본값) */
+function lastWeight(exerciseId: string): number {
+  for (const w of state.workouts) {
+    if (!w.endedAt) continue
+    const e = w.exercises.find((x) => x.exerciseId === exerciseId)
+    const done = e?.sets.filter((s) => s.done)
+    if (done?.length) return done[done.length - 1].weight
+  }
+  return 0
+}
+
+/** 루틴으로 새 운동 시작. 진행 중인 운동이 있으면 시작하지 않고 false */
+export function startRoutine(routine: Routine, day = 0): boolean {
+  const active = state.workouts.find((w) => w.id === state.activeWorkoutId)
+  if (active && active.exercises.length) return false
+  const d = routine.days[day]
+  const w: Workout = {
+    id: uid(),
+    date: today(),
+    startedAt: Date.now(),
+    routine: { id: routine.id, name: routine.days.length > 1 ? `${routine.title} · ${d.name}` : routine.title, day },
+    exercises: d.items.map((it) => {
+      const weight = it.unit === 'sec' ? 0 : lastWeight(it.exerciseId)
+      return {
+        exerciseId: it.exerciseId,
+        target: { sets: it.sets, reps: it.reps, unit: it.unit, rest: it.rest, note: it.note },
+        sets: Array.from({ length: it.sets }, () => ({ weight, reps: it.reps, done: false })),
+      }
+    }),
+  }
+  setData((s) => ({
+    ...s,
+    workouts: [w, ...s.workouts.filter((x) => x.id !== active?.id)],
+    activeWorkoutId: w.id,
+  }))
+  return true
+}
+
+/** 여러 날짜로 나뉜 루틴에서 다음에 할 날 (마지막으로 완료한 날의 다음) */
+export function nextRoutineDay(routine: Routine, workouts: Workout[]): number {
+  const last = workouts.find((w) => w.endedAt && w.routine?.id === routine.id)
+  return last ? (last.routine!.day + 1) % routine.days.length : 0
+}
+
+export function saveRoutine(routine: Routine) {
+  setData((d) => {
+    const list = d.routines ?? []
+    const exists = list.some((r) => r.id === routine.id)
+    return { ...d, routines: exists ? list.map((r) => (r.id === routine.id ? routine : r)) : [...list, routine] }
+  })
+}
+
+export function deleteRoutine(id: string) {
+  setData((d) => ({ ...d, routines: (d.routines ?? []).filter((r) => r.id !== id) }))
 }
