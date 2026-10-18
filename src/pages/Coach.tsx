@@ -246,7 +246,7 @@ function Session({ exerciseId }: { exerciseId: string }) {
       {!running && (
         <div className="card">
           <h2>정자세 예시</h2>
-          <MotionDemo exerciseId={ex.id} primary={ex.primary} secondary={ex.secondary} compact />
+          <MotionDemo key={ex.id} exerciseId={ex.id} primary={ex.primary} secondary={ex.secondary} compact />
         </div>
       )}
 

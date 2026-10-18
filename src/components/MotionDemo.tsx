@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { exerciseDbGif } from '../data/exercisedb'
 import type { Muscle } from '../data/exercises'
 import { MOTIONS, type Prop } from '../motion/motions'
 import { jointAngle, solve, type Skeleton, type Vec } from '../motion/rig'
@@ -47,11 +48,15 @@ export default function MotionDemo({
   const [playing, setPlaying] = useState(true)
   const [slow, setSlow] = useState(false)
   const [use3D, setUse3D] = useState(hasWebGL)
+  const gif = exerciseDbGif(exerciseId)
+  // 일러스트(ExerciseDB GIF)가 있으면 기본으로 보여주고, 3D 모델은 단계 설명·관절 각도용
+  const [mode, setMode] = useState<'gif' | 'model'>(gif ? 'gif' : 'model')
+  const showGif = mode === 'gif' && !!gif
   const last = useRef<number | null>(null)
   const box = useMemo(() => (motion ? bounds(motion) : null), [motion])
 
   useEffect(() => {
-    if (!playing || !motion) return
+    if (!playing || !motion || showGif) return
     let raf = 0
     const tick = (now: number) => {
       if (last.current !== null) {
@@ -66,7 +71,30 @@ export default function MotionDemo({
       cancelAnimationFrame(raf)
       last.current = null
     }
-  }, [playing, slow, motion])
+  }, [playing, slow, motion, showGif])
+
+  if (showGif) {
+    return (
+      <div className="motion">
+        <div className="motion-gif">
+          <img src={gif} alt="운동 동작 애니메이션" onError={() => setMode('model')} />
+        </div>
+        <div className="row between small muted" style={{ marginTop: 8 }}>
+          <span>
+            애니메이션:{' '}
+            <a href="https://oss.exercisedb.dev" target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>
+              ExerciseDB
+            </a>
+          </span>
+          {motion && box && (
+            <button className="btn sm" onClick={() => setMode('model')}>
+              {compact ? '3D 모델' : '3D 모델·단계 설명'}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   if (!motion || !box) return null
 
@@ -187,6 +215,11 @@ export default function MotionDemo({
             {use3D && secondary.length > 0 && <> · <span style={{ color: '#8fe3d2' }}>■</span> 보조근</>}
           </span>
           <span className="row">
+            {gif && (
+              <button className="btn sm" onClick={() => setMode('gif')}>
+                일러스트
+              </button>
+            )}
             <button className="btn sm" onClick={() => setSlow((v) => !v)}>
               {slow ? '🐢 0.4x' : '1x'}
             </button>
