@@ -5,6 +5,7 @@ import WorkoutPage from './pages/Workout'
 import Coach from './pages/Coach'
 import WeightPage from './pages/Weight'
 import Library from './pages/Library'
+import Routines from './pages/Routines'
 
 const TABS: { tab: Tab; label: string; ico: string }[] = [
   { tab: 'home', label: '홈', ico: '🏠' },
@@ -16,7 +17,7 @@ const TABS: { tab: Tab; label: string; ico: string }[] = [
 
 function parseHash(): Route {
   const [tab, id] = location.hash.replace(/^#\/?/, '').split('/')
-  const t = TABS.find((x) => x.tab === tab)?.tab ?? 'home'
+  const t = tab === 'routines' ? 'routines' : (TABS.find((x) => x.tab === tab)?.tab ?? 'home')
   return { tab: t, id: id ? decodeURIComponent(id) : undefined }
 }
 
@@ -39,6 +40,7 @@ export default function App() {
       <main className="app">
         {route.tab === 'home' && <Home />}
         {route.tab === 'workout' && <WorkoutPage workoutId={route.id} />}
+        {route.tab === 'routines' && <Routines id={route.id} />}
         {route.tab === 'coach' && <Coach exerciseId={route.id} />}
         {route.tab === 'weight' && <WeightPage />}
         {route.tab === 'library' && <Library exerciseId={route.id} />}
@@ -48,7 +50,8 @@ export default function App() {
           {TABS.map((t) => (
             <button
               key={t.tab}
-              className={`tab ${route.tab === t.tab ? 'on' : ''}`}
+              // 루틴 화면은 운동 탭 아래에 속함
+              className={`tab ${route.tab === t.tab || (route.tab === 'routines' && t.tab === 'workout') ? 'on' : ''}`}
               onClick={() => navigate({ tab: t.tab })}
             >
               <span className="ico">{t.ico}</span>

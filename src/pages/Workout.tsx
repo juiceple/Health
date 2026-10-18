@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
 import ExercisePicker from '../components/ExercisePicker'
 import { exerciseById } from '../data/exercises'
+import { PRESET_ROUTINES, type Routine } from '../data/routines'
 import { useNav } from '../nav'
+import { useStartRoutine } from './Routines'
 import {
   ensureActiveWorkout,
+  nextRoutineDay,
+  saveRoutine,
   setData,
+  uid,
   updateWorkout,
   useData,
   useNow,
@@ -49,8 +54,9 @@ export default function WorkoutPage({ workoutId }: { workoutId?: string }) {
         style={{ padding: 16, fontSize: 16, marginBottom: 12 }}
         onClick={() => ensureActiveWorkout()}
       >
-        새 운동 시작
+        빈 운동 시작
       </button>
+      <RoutinePicks />
       <div className="card">
         <h2>운동 기록</h2>
         {history.length === 0 && <div className="empty small">완료한 운동이 여기에 쌓여요</div>}
@@ -58,7 +64,10 @@ export default function WorkoutPage({ workoutId }: { workoutId?: string }) {
           <button key={w.id} className="list-item" onClick={() => nav({ tab: 'workout', id: w.id })}>
             <div className="avatar">📅</div>
             <div className="grow">
-              <div style={{ fontWeight: 600 }}>{w.date}</div>
+              <div style={{ fontWeight: 600 }}>
+                {w.date}
+                {w.routine && <span className="small accent"> · {w.routine.name}</span>}
+              </div>
               <div className="small muted">
                 {w.exercises.map((e) => exerciseById(e.exerciseId)?.name).join(', ')}
               </div>
@@ -82,7 +91,8 @@ function WorkoutDetail({ w }: { w: Workout }) {
       <button className="btn sm" onClick={() => nav({ tab: 'workout' })}>
         ← 목록
       </button>
-      <h1>{w.date} 운동</h1>
+      <h1 style={{ marginBottom: w.routine ? 2 : undefined }}>{w.date} 운동</h1>
+      {w.routine && <p className="small accent" style={{ marginTop: 0 }}>{w.routine.name}</p>}
       <div className="grid3" style={{ marginBottom: 12 }}>
         <div className="stat">
           <span className="small muted">시간</span>
@@ -112,6 +122,9 @@ function WorkoutDetail({ w }: { w: Workout }) {
             ))}
         </div>
       ))}
+      <button className="btn block" style={{ marginBottom: 10 }} onClick={() => saveAsRoutine(w)}>
+        ⭐ 이 운동을 내 루틴으로 저장
+      </button>
       <button
         className="btn danger block"
         onClick={() => {
@@ -131,7 +144,8 @@ function ActiveWorkout({ w, workouts }: { w: Workout; workouts: Workout[] }) {
   const now = useNow()
   const [picking, setPicking] = useState(false)
   const [restUntil, setRestUntil] = useState<number | null>(null)
-  const restLeft = restUntil ? Math.ceil((restUntil - now) / 1000) : 0
+  // now는 1초마다 갱신되므로 렌더 시점의 실제 시간으로 계산 (세트 완료 직후 1초 더 보이는 문제 방지)
+  const restLeft = restUntil ? Math.ceil((restUntil - Math.max(now, Date.now())) / 1000) : 0
 
   useEffect(() => {
     if (restUntil && restLeft <= 0) {
@@ -168,7 +182,7 @@ function ActiveWorkout({ w, workouts }: { w: Workout; workouts: Workout[] }) {
   return (
     <>
       <div className="row between">
-        <h1 style={{ marginBottom: 4 }}>운동 중</h1>
+        <h1 style={{ marginBottom: 4 }}>{w.routine ? w.routine.name : '운동 중'}</h1>
         <span className="accent" style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
           ⏱ {fmt(Math.floor((now - w.startedAt) / 1000))}
         </span>
@@ -210,6 +224,12 @@ function ActiveWorkout({ w, workouts }: { w: Workout; workouts: Workout[] }) {
                 </button>
               </div>
             </div>
+            {e.target && (
+              <div className="small accent" style={{ marginTop: 4 }}>
+                목표 {e.target.sets}세트 × {e.target.reps}
+                {e.target.unit === 'sec' ? '초' : '회'} · 휴식 {e.target.rest}초{e.target.note ? ` · ${e.target.note}` : ''}
+              </div>
+            )}
             {prev && (
               <div className="small muted" style={{ marginTop: 4 }}>
                 지난번: {prev.map((s) => `${s.weight}×${s.reps}`).join(', ')}
@@ -220,7 +240,7 @@ function ActiveWorkout({ w, workouts }: { w: Workout; workouts: Workout[] }) {
                 <tr>
                   <th style={{ width: 40 }}>세트</th>
                   <th>kg</th>
-                  <th>회</th>
+                  <th>{e.target?.unit === 'sec' ? '초' : '회'}</th>
                   <th style={{ width: 44 }}>완료</th>
                 </tr>
               </thead>
@@ -258,7 +278,7 @@ function ActiveWorkout({ w, workouts }: { w: Workout; workouts: Workout[] }) {
                             const fallback = prev?.[si] ?? e.sets[si - 1]
                             if (!s.weight && fallback) patch.weight = fallback.weight
                             if (!s.reps && fallback) patch.reps = fallback.reps
-                            setRestUntil(Date.now() + REST_SEC * 1000)
+                            setRestUntil(Date.now() + (e.target?.rest ?? REST_SEC) * 1000)
                           }
                           setSet(ei, si, patch)
                         }}
@@ -313,6 +333,8 @@ function ActiveWorkout({ w, workouts }: { w: Workout; workouts: Workout[] }) {
         />
       )}
 
+      {/* 휴식 타이머가 하단 버튼을 가리지 않도록 여백 확보 */}
+      {restUntil && restLeft > 0 && <div style={{ height: 64 }} />}
       {restUntil && restLeft > 0 && (
         <div className="rest">
           <span>휴식</span>
@@ -328,5 +350,80 @@ function ActiveWorkout({ w, workouts }: { w: Workout; workouts: Workout[] }) {
         </div>
       )}
     </>
+  )
+}
+
+/** 끝낸 운동을 내 루틴으로 저장하고 이름을 고칠 수 있게 수정 화면으로 이동 */
+function saveAsRoutine(w: Workout) {
+  const routine: Routine = {
+    id: uid(),
+    title: w.routine ? `${w.routine.name} (내 버전)` : `${w.date} 운동`,
+    goal: '근력·전신',
+    emoji: '⭐',
+    level: '초급',
+    place: '헬스장',
+    minutes: w.endedAt ? Math.round((w.endedAt - w.startedAt) / 60000) : 0,
+    perWeek: '',
+    desc: '',
+    tips: [],
+    custom: true,
+    days: [
+      {
+        name: '루틴',
+        items: w.exercises.map((e) => ({
+          exerciseId: e.exerciseId,
+          sets: e.sets.length || e.target?.sets || 3,
+          reps: e.sets.at(-1)?.reps || e.target?.reps || 10,
+          unit: e.target?.unit,
+          rest: e.target?.rest ?? REST_SEC,
+        })),
+      },
+    ],
+  }
+  saveRoutine(routine)
+  location.hash = `/routines/edit-${routine.id}`
+}
+
+/** 운동 탭: 루틴으로 바로 시작 */
+function RoutinePicks() {
+  const nav = useNav()
+  const data = useData()
+  const start = useStartRoutine()
+  const mine = data.routines ?? []
+  const recentIds = data.workouts.filter((w) => w.routine).map((w) => w.routine!.id)
+  const all: Routine[] = [...mine, ...PRESET_ROUTINES]
+  // 최근에 한 루틴 → 내 루틴 → 추천 순
+  const picks = [...new Set([...recentIds, ...mine.map((r) => r.id), ...PRESET_ROUTINES.map((r) => r.id)])]
+    .map((id) => all.find((r) => r.id === id))
+    .filter((r): r is Routine => !!r)
+    .slice(0, 4)
+
+  return (
+    <div className="card">
+      <div className="row between" style={{ marginBottom: 4 }}>
+        <h2 style={{ margin: 0 }}>루틴으로 시작</h2>
+        <button className="btn sm" onClick={() => nav({ tab: 'routines' })}>
+          전체 보기
+        </button>
+      </div>
+      {picks.map((r) => {
+        const day = nextRoutineDay(r, data.workouts)
+        return (
+          <div key={r.id} className="list-item" style={{ cursor: 'default' }}>
+            <div className="avatar">{r.emoji}</div>
+            <button className="grow" style={{ all: 'unset', cursor: 'pointer', flex: 1, minWidth: 0 }} onClick={() => nav({ tab: 'routines', id: r.id })}>
+              <div style={{ fontWeight: 600 }}>{r.title}</div>
+              <div className="small muted">
+                {r.days.length > 1 ? `다음: ${r.days[day].name}` : `${r.days[0].items.length}종목`}
+                {r.minutes ? ` · ${r.minutes}분` : ''}
+              </div>
+            </button>
+            <button className="btn sm primary" onClick={() => start(r, day)}>
+              시작
+            </button>
+          </div>
+        )
+      })}
+    </div>
   )
 }
