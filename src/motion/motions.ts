@@ -154,11 +154,17 @@ function bench(dumbbell_ = false): Motion {
       { kind: 'line', a: [56, 30], b: [56, 0], w: 3 },
       ...(dumbbell_ ? dumbbell(s.wristN) : plate(s.wristN, 16)),
     ],
-    frames: [
-      { pose: { hip, torso, ...top, ...lower }, caption: '견갑을 모으고 바를 눈 위에서 시작', hold: 600, move: 700 },
-      { pose: { hip, torso, ...bottom, ...lower }, caption: '팔꿈치 45~70°로 명치까지 천천히 내리기', hold: 400, move: 1200 },
-      { pose: { hip, torso, ...top, ...lower }, caption: '발로 바닥을 밀며 밀어 올리기', hold: 400, move: 800 },
-    ],
+    frames: dumbbell_
+      ? [
+          { pose: { hip, torso, ...top, ...lower }, caption: '견갑을 모으고 덤벨을 가슴 위로 들기', hold: 600, move: 700 },
+          { pose: { hip, torso, ...bottom, ...lower }, caption: '팔꿈치 45~70°로 덤벨을 가슴 옆까지 내리기', hold: 400, move: 1200 },
+          { pose: { hip, torso, ...top, ...lower }, caption: '살짝 모이는 궤적으로 밀어 올리기', hold: 400, move: 800 },
+        ]
+      : [
+          { pose: { hip, torso, ...top, ...lower }, caption: '견갑을 모으고 바를 눈 위에서 시작', hold: 600, move: 700 },
+          { pose: { hip, torso, ...bottom, ...lower }, caption: '팔꿈치 45~70°로 명치까지 천천히 내리기', hold: 400, move: 1200 },
+          { pose: { hip, torso, ...top, ...lower }, caption: '발로 바닥을 밀며 밀어 올리기', hold: 400, move: 800 },
+        ],
   }
 }
 
@@ -585,20 +591,22 @@ function oneArmRow(): Motion {
 }
 
 function backExtension(): Motion {
-  const hip: Vec = [0, 56]
+  // 기구 위에 올라가 있으므로 전체를 바닥에서 띄움 (내려갈 때 머리가 바닥을 뚫지 않게)
+  const hip: Vec = [0, 80]
   const P = (torso: number): Pose => ({
     hip,
     torso,
     ...both(fk(torso + 150, torso + 220)),
-    ...legs({ target: [-62, 2], bend: 1, foot: 150 }),
+    ...legs({ target: [-62, 26], bend: 1, foot: 150 }),
   })
   return {
     view: 'side',
     metric: { joint: 'hip', label: '고관절' },
     props: () => [
-      { kind: 'circle', c: [6, 48], r: 6, fill: true },
-      { kind: 'line', a: [6, 42], b: [-30, 0], w: 3 },
-      { kind: 'line', a: [-70, 0], b: [-56, 10], w: 4 },
+      { kind: 'circle', c: [6, 72], r: 6, fill: true },
+      { kind: 'line', a: [6, 66], b: [-30, 0], w: 3 },
+      { kind: 'line', a: [-72, 22], b: [-54, 34], w: 4 },
+      { kind: 'line', a: [-63, 28], b: [-63, 0], w: 3 },
     ],
     frames: [
       { pose: P(48), caption: '패드는 골반 아래, 몸을 일직선으로', hold: 600, move: 700 },

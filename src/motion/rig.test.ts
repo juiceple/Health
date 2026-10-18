@@ -28,4 +28,13 @@ describe('rig', () => {
       }
     }
   })
+
+  it('never pushes the body through the floor', () => {
+    for (const [id, m] of Object.entries(MOTIONS)) {
+      m.frames.forEach((f, i) => {
+        const s = solve(f.pose, m.view)
+        expect(s.head[1] - LEN.head, `${id} frame ${i} head`).toBeGreaterThan(-1)
+      })
+    }
+  })
 })
