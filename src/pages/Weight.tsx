@@ -39,6 +39,18 @@ export default function WeightPage() {
   const bmi = latest && profile.heightCm ? latest.kg / (profile.heightCm / 100) ** 2 : undefined
   const toGoal = latest && profile.goalKg ? latest.kg - profile.goalKg : undefined
 
+  // 날짜를 바꾸면 그 날의 기록을 불러와 다른 날 값으로 덮어쓰지 않게 함
+  const selectDate = (d: string) => {
+    setDate(d)
+    const entry = weights.find((w) => w.date === d)
+    if (entry) {
+      setKg(String(entry.kg))
+      setFat(entry.bodyFat ? String(entry.bodyFat) : '')
+    } else {
+      setFat('')
+    }
+  }
+
   const save = () => {
     const v = Number(kg)
     if (!v || v < 20 || v > 400) return alert('체중을 올바르게 입력해주세요')
@@ -61,7 +73,7 @@ export default function WeightPage() {
       <div className="card">
         <h2>체중 기록</h2>
         <div className="row" style={{ marginBottom: 8 }}>
-          <input className="input" type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
+          <input className="input" type="date" value={date} max={today()} onChange={(e) => selectDate(e.target.value)} />
         </div>
         <div className="row">
           <div className="grow">

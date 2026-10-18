@@ -106,18 +106,19 @@ function Session({ exerciseId }: { exerciseId: string }) {
 
     ;(async () => {
       try {
-        const [{ lm, connections }, s] = await Promise.all([
-          loadLandmarker(),
-          navigator.mediaDevices.getUserMedia({
-            video: { facingMode: facing, width: { ideal: 720 }, height: { ideal: 960 } },
-            audio: false,
-          }),
-        ])
-        stream = s
-        if (cancelled) {
-          s.getTracks().forEach((t) => t.stop())
-          return
-        }
+        const camera = navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing, width: { ideal: 720 }, height: { ideal: 960 } },
+          audio: false,
+        })
+        // 모델 로드가 먼저 실패하거나 화면을 벗어난 뒤 카메라가 열려도 바로 끔
+        camera
+          .then((s) => {
+            stream = s
+            if (cancelled) s.getTracks().forEach((t) => t.stop())
+          })
+          .catch(() => {})
+        const [{ lm, connections }, s] = await Promise.all([loadLandmarker(), camera])
+        if (cancelled) return
         const video = videoRef.current!
         video.srcObject = s
         await video.play()
@@ -188,6 +189,8 @@ function Session({ exerciseId }: { exerciseId: string }) {
         loop()
       } catch (e) {
         if (cancelled) return
+        cancelled = true
+        ;(stream as MediaStream | null)?.getTracks().forEach((t) => t.stop())
         const err = e as Error
         setError(
           err.name === 'NotAllowedError'
