@@ -83,7 +83,7 @@ export default function MotionDemo({
           <span>
             애니메이션:{' '}
             <a href="https://oss.exercisedb.dev" target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>
-              ExerciseDB
+              ExerciseDB (AscendAPI)
             </a>
           </span>
           {motion && box && (
@@ -206,6 +206,13 @@ export default function MotionDemo({
         </span>
         {caption}
       </div>
+      {compact && gif && (
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+          <button className="btn sm" onClick={() => setMode('gif')}>
+            일러스트로 보기
+          </button>
+        </div>
+      )}
       {!compact && (
         <div className="row between small muted" style={{ marginTop: 8 }}>
           <span>
