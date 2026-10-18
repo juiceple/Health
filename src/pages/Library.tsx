@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ExerciseRow, useExerciseFilter } from '../components/ExercisePicker'
 import MotionDemo from '../components/MotionDemo'
 import { exerciseById } from '../data/exercises'
+import { VIDEOS } from '../data/videos'
 import { useNav } from '../nav'
 import { setVideo, useData, youtubeId } from '../store'
 
@@ -131,6 +132,10 @@ function Detail({ id }: { id: string }) {
 function VideoCard({ exerciseId, name, videoId }: { exerciseId: string; name: string; videoId?: string }) {
   const [url, setUrl] = useState('')
   const [editing, setEditing] = useState(false)
+  const preset = VIDEOS[exerciseId]
+  // 사용자가 등록한 영상이 있으면 우선, 없으면 추천 영상
+  const current = videoId ?? preset?.id
+  const isPreset = !videoId && !!preset
   const search = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${name} 자세`)}`
   const save = () => {
     const id = youtubeId(url)
@@ -144,21 +149,32 @@ function VideoCard({ exerciseId, name, videoId }: { exerciseId: string; name: st
     <div className="card">
       <div className="row between" style={{ marginBottom: 10 }}>
         <h2 style={{ margin: 0 }}>▶ 영상으로 보기</h2>
-        {videoId && !editing && (
+        {current && !editing && (
           <button className="btn sm" onClick={() => setEditing(true)}>
-            영상 변경
+            다른 영상
           </button>
         )}
       </div>
-      {videoId && !editing ? (
-        <div className="video">
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&playsinline=1`}
-            title={`${name} 자세 영상`}
-            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
-        </div>
+      {current && !editing ? (
+        <>
+          <div className="video">
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${current}?rel=0&playsinline=1`}
+              title={`${name} 자세 영상`}
+              allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+            />
+          </div>
+          <p className="small muted" style={{ marginBottom: 0 }}>
+            {isPreset ? (
+              <>
+                추천 영상 · <b style={{ color: 'var(--text)' }}>{preset.title}</b> — {preset.channel}
+              </>
+            ) : (
+              '내가 등록한 영상'
+            )}
+          </p>
+        </>
       ) : (
         <>
           <a className="btn primary block" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }} href={search} target="_blank" rel="noreferrer">
@@ -177,20 +193,22 @@ function VideoCard({ exerciseId, name, videoId }: { exerciseId: string; name: st
               등록
             </button>
           </div>
-          {videoId && (
+          {current && (
             <div className="row" style={{ marginTop: 8 }}>
               <button className="btn sm" onClick={() => setEditing(false)}>
                 취소
               </button>
-              <button
-                className="btn sm danger"
-                onClick={() => {
-                  setVideo(exerciseId, undefined)
-                  setEditing(false)
-                }}
-              >
-                영상 삭제
-              </button>
+              {videoId && (
+                <button
+                  className="btn sm"
+                  onClick={() => {
+                    setVideo(exerciseId, undefined)
+                    setEditing(false)
+                  }}
+                >
+                  {preset ? '추천 영상으로 되돌리기' : '영상 삭제'}
+                </button>
+              )}
             </div>
           )}
         </>
