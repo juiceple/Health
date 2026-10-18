@@ -28,6 +28,10 @@ const MUSCLE_PART: Record<Muscle, 'torso' | 'thigh' | 'shin' | 'arm' | 'shoulder
   이두: 'arm',
   삼두: 'arm',
   어깨: 'shoulder',
+  전완: 'arm',
+  내전근: 'thigh',
+  목: 'shoulder',
+  심폐: 'torso',
 }
 
 const P = ([x, y]: Vec) => `${x.toFixed(1)},${(-y).toFixed(1)}`
