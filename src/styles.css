@@ -118,6 +118,7 @@ h3 {
   background: var(--surface-2);
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 .btn.primary {
   background: var(--accent);
@@ -430,4 +431,49 @@ ul.dots li {
   width: 100%;
   height: auto;
   display: block;
+}
+
+/* 동작 시범 애니메이션 */
+.motion-svg {
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+  display: block;
+  background: radial-gradient(ellipse at 50% 60%, var(--surface-2), var(--surface) 70%);
+  border-radius: 12px;
+}
+.motion-caption {
+  margin-top: 10px;
+  font-weight: 600;
+  min-height: 2.9em;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.motion-caption .step {
+  flex: none;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  margin-top: 1px;
+}
+.motion-caption.bad {
+  color: var(--bad);
+}
+.video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+.video iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }

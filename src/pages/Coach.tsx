@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PoseLandmarker } from '@mediapipe/tasks-vision'
+import MotionDemo from '../components/MotionDemo'
 import { EXERCISES, exerciseById } from '../data/exercises'
 import { createAnalyzer, type FrameResult } from '../pose/analyzers'
 import { useNav } from '../nav'
@@ -241,6 +242,13 @@ function Session({ exerciseId }: { exerciseId: string }) {
       <p className="small muted" style={{ marginTop: 0 }}>
         📐 {ex.cameraHint}
       </p>
+
+      {!running && (
+        <div className="card">
+          <h2>정자세 예시</h2>
+          <MotionDemo exerciseId={ex.id} primary={ex.primary} compact />
+        </div>
+      )}
 
       <div className={`stage ${facing === 'user' ? 'mirror' : ''}`}>
         <video ref={videoRef} playsInline muted />

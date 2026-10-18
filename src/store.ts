@@ -18,6 +18,8 @@ export type AppData = {
   weights: WeightEntry[]
   profile: Profile
   activeWorkoutId?: string
+  /** 운동별로 사용자가 등록한 유튜브 영상 ID */
+  videos?: Record<string, string>
 }
 
 const KEY = 'fitlog:v1'
@@ -119,4 +121,19 @@ export function useNow(intervalMs = 1000) {
     return () => clearInterval(t)
   }, [intervalMs])
   return now
+}
+
+/** 유튜브 링크(watch, youtu.be, shorts, embed)에서 영상 ID 추출 */
+export function youtubeId(url: string): string | undefined {
+  const m = url.trim().match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([\w-]{11})/)
+  return m?.[1] ?? (/^[\w-]{11}$/.test(url.trim()) ? url.trim() : undefined)
+}
+
+export function setVideo(exerciseId: string, id: string | undefined) {
+  setData((d) => {
+    const videos = { ...d.videos }
+    if (id) videos[exerciseId] = id
+    else delete videos[exerciseId]
+    return { ...d, videos }
+  })
 }

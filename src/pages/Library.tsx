@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { ExerciseRow, useExerciseFilter } from '../components/ExercisePicker'
+import MotionDemo from '../components/MotionDemo'
 import { exerciseById } from '../data/exercises'
 import { useNav } from '../nav'
-import { useData } from '../store'
+import { setVideo, useData, youtubeId } from '../store'
 
 export default function Library({ exerciseId }: { exerciseId?: string }) {
   const nav = useNav()
@@ -51,6 +53,11 @@ function Detail({ id }: { id: string }) {
         <span className="tag">{ex.category}</span>
         <span className="tag">{ex.equipment}</span>
         {ex.coach && <span className="tag ai">AI 코칭 지원</span>}
+      </div>
+
+      <div className="card">
+        <h2>동작 시범</h2>
+        <MotionDemo exerciseId={ex.id} primary={ex.primary} />
       </div>
 
       <div className="card">
@@ -106,6 +113,8 @@ function Detail({ id }: { id: string }) {
         </ul>
       </div>
 
+      <VideoCard exerciseId={ex.id} name={ex.name} videoId={data.videos?.[ex.id]} />
+
       {best && (
         <div className="card">
           <h2>내 최고 기록</h2>
@@ -116,5 +125,76 @@ function Detail({ id }: { id: string }) {
         </div>
       )}
     </>
+  )
+}
+
+function VideoCard({ exerciseId, name, videoId }: { exerciseId: string; name: string; videoId?: string }) {
+  const [url, setUrl] = useState('')
+  const [editing, setEditing] = useState(false)
+  const search = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${name} 자세`)}`
+  const save = () => {
+    const id = youtubeId(url)
+    if (!id) return alert('유튜브 링크를 확인해주세요')
+    setVideo(exerciseId, id)
+    setUrl('')
+    setEditing(false)
+  }
+
+  return (
+    <div className="card">
+      <div className="row between" style={{ marginBottom: 10 }}>
+        <h2 style={{ margin: 0 }}>▶ 영상으로 보기</h2>
+        {videoId && !editing && (
+          <button className="btn sm" onClick={() => setEditing(true)}>
+            영상 변경
+          </button>
+        )}
+      </div>
+      {videoId && !editing ? (
+        <div className="video">
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&playsinline=1`}
+            title={`${name} 자세 영상`}
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowFullScreen
+          />
+        </div>
+      ) : (
+        <>
+          <a className="btn primary block" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }} href={search} target="_blank" rel="noreferrer">
+            유튜브에서 "{name} 자세" 영상 찾기
+          </a>
+          <p className="small muted">마음에 드는 영상 링크를 붙여넣으면 여기서 바로 볼 수 있어요.</p>
+          <div className="row">
+            <input
+              className="input"
+              placeholder="https://youtu.be/..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+            />
+            <button className="btn sm" onClick={save} disabled={!url}>
+              등록
+            </button>
+          </div>
+          {videoId && (
+            <div className="row" style={{ marginTop: 8 }}>
+              <button className="btn sm" onClick={() => setEditing(false)}>
+                취소
+              </button>
+              <button
+                className="btn sm danger"
+                onClick={() => {
+                  setVideo(exerciseId, undefined)
+                  setEditing(false)
+                }}
+              >
+                영상 삭제
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   )
 }
