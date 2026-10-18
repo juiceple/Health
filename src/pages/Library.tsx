@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ExerciseRow, useExerciseFilter } from '../components/ExercisePicker'
 import MotionDemo from '../components/MotionDemo'
+import { exerciseDbGif, exerciseDbSteps } from '../data/exercisedb'
 import { exerciseById } from '../data/exercises'
 import { VIDEOS } from '../data/videos'
 import { useNav } from '../nav'
@@ -8,7 +9,7 @@ import { setVideo, useData, youtubeId } from '../store'
 
 export default function Library({ exerciseId }: { exerciseId?: string }) {
   const nav = useNav()
-  const { list, controls } = useExerciseFilter()
+  const { list, controls, more, total } = useExerciseFilter()
   const ex = exerciseId ? exerciseById(exerciseId) : undefined
 
   if (ex) return <Detail id={ex.id} />
@@ -17,11 +18,15 @@ export default function Library({ exerciseId }: { exerciseId?: string }) {
     <>
       <h1>운동법</h1>
       {controls}
+      <p className="small muted" style={{ margin: '0 0 8px' }}>
+        {total.toLocaleString()}개 · 대표 운동이 먼저 나와요
+      </p>
       <div className="card" style={{ paddingTop: 4, paddingBottom: 4 }}>
         {list.map((e) => (
           <ExerciseRow key={e.id} e={e} onClick={() => nav({ tab: 'library', id: e.id })} />
         ))}
         {list.length === 0 && <div className="empty small">검색 결과가 없어요</div>}
+        {more}
       </div>
     </>
   )
@@ -49,17 +54,24 @@ function Detail({ id }: { id: string }) {
       <button className="btn sm" onClick={() => history.back()}>
         ← 뒤로
       </button>
-      <h1 style={{ marginBottom: 6 }}>{ex.name}</h1>
+      <h1 style={{ marginBottom: ex.en ? 2 : 6 }}>{ex.name}</h1>
+      {ex.en && (
+        <p className="small muted" style={{ marginTop: 0, textTransform: 'capitalize' }}>
+          {ex.en}
+        </p>
+      )}
       <div style={{ marginBottom: 14 }}>
         <span className="tag">{ex.category}</span>
         <span className="tag">{ex.equipment}</span>
         {ex.coach && <span className="tag ai">AI 코칭 지원</span>}
       </div>
 
-      <div className="card">
-        <h2>동작 시범</h2>
-        <MotionDemo key={ex.id} exerciseId={ex.id} primary={ex.primary} secondary={ex.secondary} />
-      </div>
+      {ex.edbId && !exerciseDbGif(ex.id) ? null : (
+        <div className="card">
+          <h2>동작 시범</h2>
+          <MotionDemo key={ex.id} exerciseId={ex.id} primary={ex.primary} secondary={ex.secondary} />
+        </div>
+      )}
 
       <div className="card">
         <h2>타겟 근육</h2>
@@ -86,33 +98,30 @@ function Detail({ id }: { id: string }) {
         </button>
       )}
 
-      <div className="card">
-        <h2>운동 방법</h2>
-        <ol className="steps">
-          {ex.steps.map((s, i) => (
-            <li key={i}>{s}</li>
-          ))}
-        </ol>
-      </div>
+      <Steps id={ex.id} steps={ex.steps} edbId={ex.edbId} />
 
-      <div className="card">
-        <h2 style={{ color: 'var(--bad)' }}>⚠️ 흔한 실수</h2>
-        <ul className="dots">
-          {ex.mistakes.map((s, i) => (
-            <li key={i}>{s}</li>
-          ))}
-        </ul>
-      </div>
+      {ex.mistakes.length > 0 && (
+        <div className="card">
+          <h2 style={{ color: 'var(--bad)' }}>⚠️ 흔한 실수</h2>
+          <ul className="dots">
+            {ex.mistakes.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-      <div className="card">
-        <h2 className="accent">💡 팁</h2>
-        <ul className="dots">
-          {ex.tips.map((s, i) => (
-            <li key={i}>{s}</li>
-          ))}
-          {ex.cameraHint && <li>AI 코칭 시 카메라 위치: {ex.cameraHint}</li>}
-        </ul>
-      </div>
+      {(ex.tips.length > 0 || ex.cameraHint) && (
+        <div className="card">
+          <h2 className="accent">💡 팁</h2>
+          <ul className="dots">
+            {ex.tips.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+            {ex.cameraHint && <li>AI 코칭 시 카메라 위치: {ex.cameraHint}</li>}
+          </ul>
+        </div>
+      )}
 
       <VideoCard exerciseId={ex.id} name={ex.name} videoId={data.videos?.[ex.id]} />
 
@@ -126,6 +135,43 @@ function Detail({ id }: { id: string }) {
         </div>
       )}
     </>
+  )
+}
+
+/** 운동 방법: 대표 운동은 한국어 설명, ExerciseDB 운동은 영문 설명을 불러와 표시 */
+function Steps({ id, steps, edbId }: { id: string; steps: string[]; edbId?: string }) {
+  const [loaded, setLoaded] = useState<{ id: string; steps: string[] } | null>(null)
+  useEffect(() => {
+    if (!edbId || steps.length) return
+    let alive = true
+    exerciseDbSteps(edbId)
+      .then((s) => alive && setLoaded({ id, steps: s }))
+      .catch(() => alive && setLoaded({ id, steps: [] }))
+    return () => {
+      alive = false
+    }
+  }, [id, edbId, steps.length])
+
+  const list = steps.length ? steps : loaded?.id === id ? loaded.steps : null
+  if (list && list.length === 0) return null
+  return (
+    <div className="card">
+      <h2>운동 방법</h2>
+      {!list ? (
+        <p className="small muted">불러오는 중…</p>
+      ) : (
+        <ol className="steps" lang={steps.length ? 'ko' : 'en'}>
+          {list.map((s, i) => (
+            <li key={i}>{s}</li>
+          ))}
+        </ol>
+      )}
+      {!steps.length && list && (
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          ExerciseDB (AscendAPI) 영문 설명
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -177,7 +223,7 @@ function VideoCard({ exerciseId, name, videoId }: { exerciseId: string; name: st
         </>
       ) : (
         <>
-          <a className="btn primary block" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }} href={search} target="_blank" rel="noreferrer">
+          <a className="btn primary block" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', whiteSpace: 'normal' }} href={search} target="_blank" rel="noreferrer">
             유튜브에서 "{name} 자세" 영상 찾기
           </a>
           <p className="small muted">마음에 드는 영상 링크를 붙여넣으면 여기서 바로 볼 수 있어요.</p>

@@ -28,6 +28,10 @@ const MUSCLE_PART: Record<Muscle, 'torso' | 'thigh' | 'shin' | 'arm' | 'shoulder
   이두: 'arm',
   삼두: 'arm',
   어깨: 'shoulder',
+  전완: 'arm',
+  내전근: 'thigh',
+  목: 'shoulder',
+  심폐: 'torso',
 }
 
 const P = ([x, y]: Vec) => `${x.toFixed(1)},${(-y).toFixed(1)}`
@@ -83,7 +87,7 @@ export default function MotionDemo({
           <span>
             애니메이션:{' '}
             <a href="https://oss.exercisedb.dev" target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>
-              ExerciseDB
+              ExerciseDB (AscendAPI)
             </a>
           </span>
           {motion && box && (
@@ -206,6 +210,13 @@ export default function MotionDemo({
         </span>
         {caption}
       </div>
+      {compact && gif && (
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+          <button className="btn sm" onClick={() => setMode('gif')}>
+            일러스트로 보기
+          </button>
+        </div>
+      )}
       {!compact && (
         <div className="row between small muted" style={{ marginTop: 8 }}>
           <span>

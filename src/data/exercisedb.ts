@@ -6,6 +6,14 @@
  * 상업용으로 출시할 때는 유료 라이선스를 구매해 파일을 직접 호스팅하고
  * VITE_EXERCISEDB_MEDIA_URL 을 그 주소로 지정하면 된다 (파일명: <ID>.gif).
  */
+import catalog from './edb/catalog.json'
+
+export type EdbEntry = { id: string; en: string; ko: string; cat: string; eq: string; p: string[]; s: string[]; nogif?: number }
+
+/** ExerciseDB 전체 카탈로그 1,500종 (scripts/build-exercisedb.py 로 생성, 이름은 한국어로 변환) */
+export const EDB_CATALOG = catalog as EdbEntry[]
+const NO_GIF = new Set(EDB_CATALOG.filter((e) => e.nogif).map((e) => e.id))
+
 export const EXERCISEDB_IDS: Record<string, string> = {
   squat: '75Bgtjy',
   'barbell-squat': 'qXTaZnJ',
@@ -48,6 +56,12 @@ export const EXERCISEDB_IDS: Record<string, string> = {
 const MEDIA_URL = (import.meta.env.VITE_EXERCISEDB_MEDIA_URL as string | undefined) ?? 'https://static.exercisedb.dev/media'
 
 export function exerciseDbGif(exerciseId: string): string | undefined {
-  const id = EXERCISEDB_IDS[exerciseId]
-  return id && `${MEDIA_URL.replace(/\/$/, '')}/${id}.gif`
+  const id = exerciseId.startsWith('edb-') ? exerciseId.slice(4) : EXERCISEDB_IDS[exerciseId]
+  return id && !NO_GIF.has(id) ? `${MEDIA_URL.replace(/\/$/, '')}/${id}.gif` : undefined
+}
+
+/** ExerciseDB 영문 단계별 설명 (용량이 커서 필요할 때만 로드) */
+export async function exerciseDbSteps(edbId: string): Promise<string[]> {
+  const all = (await import('./edb/instructions.json')).default as Record<string, string[]>
+  return all[edbId] ?? []
 }

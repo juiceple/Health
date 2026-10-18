@@ -1,3 +1,5 @@
+import { EDB_CATALOG, EXERCISEDB_IDS } from './exercisedb'
+
 export type Muscle =
   | '가슴'
   | '등'
@@ -10,8 +12,12 @@ export type Muscle =
   | '종아리'
   | '복근'
   | '코어'
+  | '전완'
+  | '내전근'
+  | '목'
+  | '심폐'
 
-export type Category = '가슴' | '등' | '하체' | '어깨' | '팔' | '복근' | '맨몸'
+export type Category = '가슴' | '등' | '하체' | '어깨' | '팔' | '복근' | '맨몸' | '유산소'
 
 /** AI 카메라 코칭을 지원하는 운동 종류 (pose/analyzers.ts 참고) */
 export type CoachKind = 'squat' | 'pushup' | 'curl' | 'press' | 'lunge'
@@ -20,7 +26,7 @@ export type Exercise = {
   id: string
   name: string
   category: Category
-  equipment: '바벨' | '덤벨' | '머신' | '케이블' | '맨몸'
+  equipment: string
   primary: Muscle[]
   secondary: Muscle[]
   steps: string[]
@@ -29,9 +35,13 @@ export type Exercise = {
   coach?: CoachKind
   /** 카메라를 어느 방향에서 찍어야 하는지 */
   cameraHint?: string
+  /** ExerciseDB에서 가져온 운동: 원래 영문 이름과 ExerciseDB ID (설명은 상세 화면에서 lazy 로드) */
+  en?: string
+  edbId?: string
 }
 
-export const EXERCISES: Exercise[] = [
+/** 직접 작성한 한국어 설명·동작 시범·AI 코칭이 있는 대표 운동 */
+export const CURATED: Exercise[] = [
   {
     id: 'squat',
     name: '스쿼트',
@@ -684,6 +694,26 @@ export const EXERCISES: Exercise[] = [
   },
 ]
 
-export const exerciseById = (id: string) => EXERCISES.find((e) => e.id === id)
+// ExerciseDB 전체 카탈로그 (대표 운동과 같은 것은 제외)
+const curatedEdb = new Set(Object.values(EXERCISEDB_IDS))
+const FROM_EDB: Exercise[] = EDB_CATALOG.filter((e) => !curatedEdb.has(e.id)).map((e) => ({
+  id: `edb-${e.id}`,
+  name: e.ko,
+  en: e.en,
+  edbId: e.id,
+  category: e.cat as Category,
+  equipment: e.eq,
+  primary: e.p as Muscle[],
+  secondary: e.s as Muscle[],
+  steps: [],
+  mistakes: [],
+  tips: [],
+}))
 
-export const CATEGORIES: Category[] = ['가슴', '등', '하체', '어깨', '팔', '복근', '맨몸']
+/** 대표 운동이 먼저, 그다음 ExerciseDB 운동 */
+export const EXERCISES: Exercise[] = [...CURATED, ...FROM_EDB]
+
+const BY_ID = new Map(EXERCISES.map((e) => [e.id, e]))
+export const exerciseById = (id: string) => BY_ID.get(id)
+
+export const CATEGORIES: Category[] = ['가슴', '등', '하체', '어깨', '팔', '복근', '맨몸', '유산소']
